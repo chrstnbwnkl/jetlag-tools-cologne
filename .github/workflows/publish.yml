@@ -1,0 +1,50 @@
+name: Publish SPA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "index.html"
+      - "vite.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/**"
+  workflow_dispatch:
+
+jobs:
+  publish_spa:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SPA
+        run: npm run build
+        # produces dist/
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+
+      - name: Add SSH host
+        run: ssh-keyscan -H 188.245.194.210 >> ~/.ssh/known_hosts
+
+      - name: Deploy SPA
+        run: |
+          rsync -avz --delete dist/ \
+            root@188.245.194.210:/var/www/blog/jetlag-cgn/
